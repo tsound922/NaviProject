@@ -113,7 +113,7 @@ ollama pull bge-m3
 
 ### 4. Configure the Backend
 
-Edit `Solution1/NaviProject.Api/appsettings.json`:
+Edit `NaviProject/NaviProject.Api/appsettings.json`:
 
 ```json
 {
@@ -129,7 +129,7 @@ Edit `Solution1/NaviProject.Api/appsettings.json`:
 ### 5. Start the Backend
 
 ```bash
-cd Solution1/NaviProject.Api
+cd NaviProject/NaviProject.Api
 dotnet run
 ```
 

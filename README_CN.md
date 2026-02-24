@@ -113,7 +113,7 @@ ollama pull bge-m3
 
 ### 4. 配置后端
 
-编辑 `Solution1/NaviProject.Api/appsettings.json`：
+编辑 `NaviProject/NaviProject.Api/appsettings.json`：
 
 ```json
 {
@@ -129,7 +129,7 @@ ollama pull bge-m3
 ### 5. 启动后端
 
 ```bash
-cd Solution1/NaviProject.Api
+cd NaviProject/NaviProject.Api
 dotnet run
 ```
 

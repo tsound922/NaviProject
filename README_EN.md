@@ -28,7 +28,7 @@ A local LLM-powered personal knowledge base system that helps you review past ta
 
 ```
 NaviProject/
-├── Solution1/
+├── NaviProject/
 │   ├── NaviProject.Api/              # ASP.NET Core Web API
 │   │   ├── Controllers/              # ChatController, RagController, ConversationController
 │   │   └── Services/                 # OllamaEmbeddingService, OllamaLanguageModelService

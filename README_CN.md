@@ -28,7 +28,7 @@
 
 ```
 NaviProject/
-├── Solution1/
+├── NaviProject/
 │   ├── NaviProject.Api/          # ASP.NET Core Web API
 │   │   ├── Controllers/          # ChatController, RagController, ConversationController
 │   │   └── Services/             # OllamaEmbeddingService, OllamaLanguageModelService

@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace NaviProject.Core.Models
+﻿namespace NaviProject.Core.Models
 {
     public class RagChunk
     {
@@ -17,5 +11,6 @@ namespace NaviProject.Core.Models
         public DateTime UpdatedAt { get; set; }
         public string Content { get; set; } = string.Empty;
         public float[]? Embedding { get; set; }
+        public bool IsPublic { get; set; }
     }
 }

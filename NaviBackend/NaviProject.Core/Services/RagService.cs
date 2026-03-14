@@ -8,7 +8,7 @@ public class RagService(IRagRepository ragRepo, IEmbeddingService embeddingServi
     private const int ChunkSize = 500;
     private const int ChunkOverlap = 50;
 
-    public async Task IngestTextAsync(string source, string text, int userId)
+    public async Task IngestTextAsync(string source, string text, int userId, bool isPublic = false)
     {
         var chunks = ChunkText(text);
 
@@ -25,10 +25,9 @@ public class RagService(IRagRepository ragRepo, IEmbeddingService embeddingServi
                 EndIndex = end,
                 Content = content,
                 Embedding = embedding
-            }, userId);
+            }, userId, isPublic);
         }
     }
-
     public async Task<IEnumerable<RagChunk>> SearchAsync(string query, int userId, int topK = 5)
     {
         var embedding = await embeddingService.GetEmbeddingAsync(query);

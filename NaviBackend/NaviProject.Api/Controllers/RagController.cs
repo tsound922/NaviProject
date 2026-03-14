@@ -18,6 +18,14 @@ public class RagController(RagService ragService) : ControllerBase
         return Ok(new { message = "Ingested successfully" });
     }
 
+    [HttpPost("ingest/public")]
+    public async Task<IActionResult> IngestPublic([FromBody] IngestRequest request)
+    {
+        var userId = User.GetUserId();
+        await ragService.IngestTextAsync(request.Source, request.Text, userId, isPublic: true);
+        return Ok(new { message = "Ingested to public knowledge base successfully" });
+    }
+
     [HttpGet("search")]
     public async Task<IActionResult> Search([FromQuery] string query, [FromQuery] int topK = 5)
     {

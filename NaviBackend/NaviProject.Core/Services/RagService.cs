@@ -5,7 +5,7 @@ namespace NaviProject.Core.Services;
 
 public class RagService(IRagRepository ragRepo, IEmbeddingService embeddingService)
 {
-    private const int ChunkSize = 500;
+    private const int ChunkSize = 5000;
     private const int ChunkOverlap = 50;
 
     public async Task IngestTextAsync(string source, string text)

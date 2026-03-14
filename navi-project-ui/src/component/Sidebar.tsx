@@ -6,15 +6,11 @@ interface SidebarProps {
   selectedChatId: number | null;
   onSelectChat: (chatId: number) => void;
   onNewChat: () => void;
+  onIngest: () => void; 
 }
 
-export default function Sidebar({ selectedChatId, onSelectChat, onNewChat }: SidebarProps) {
+export default function Sidebar({ selectedChatId, onSelectChat, onNewChat, onIngest }: SidebarProps) {
   const [chats, setChats] = useState<Chat[]>([]);
-
-  const loadChats = async () => {
-    const res = await chatApi.getAllChats();
-    setChats(res.data);
-  };
 
   useEffect(() => {
   let cancelled = false;
@@ -34,10 +30,11 @@ export default function Sidebar({ selectedChatId, onSelectChat, onNewChat }: Sid
 }, [selectedChatId]);
 
   const handleDelete = async (e: React.MouseEvent, chatId: number) => {
-    e.stopPropagation();
-    await chatApi.deleteChat(chatId);
-    await loadChats();
-  };
+  e.stopPropagation();
+  await chatApi.deleteChat(chatId);
+  const res = await chatApi.getAllChats();
+  setChats(res.data);
+};
 
   return (
     <div style={{
@@ -65,6 +62,21 @@ export default function Sidebar({ selectedChatId, onSelectChat, onNewChat }: Sid
       >
         + 新建会话
       </button>
+<button
+  onClick={onIngest}
+  style={{
+    backgroundColor: 'transparent',
+    color: '#aaa',
+    border: '1px solid #444',
+    borderRadius: '8px',
+    padding: '10px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    marginBottom: '8px',
+  }}
+>
+  + Ingest Document
+</button>
 
       <div style={{ overflowY: 'auto', flex: 1 }}>
         {chats.map(chat => (

@@ -9,8 +9,8 @@ public class OllamaEmbeddingService(OllamaApiClient ollamaClient) : IEmbeddingSe
     {
         var result = await ollamaClient.EmbedAsync(new OllamaSharp.Models.EmbedRequest
         {
-            Model = "bge-m3",
-            Input = [text]
+            Model = "nomic-embed-text",
+            Input = new List<string> { text }
         });
 
         return result.Embeddings![0];

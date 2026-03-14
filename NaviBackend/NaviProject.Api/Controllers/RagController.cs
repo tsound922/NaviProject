@@ -1,32 +1,36 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using NaviProject.Api.Extensions;
 using NaviProject.Core.Services;
 
 namespace NaviProject.Api.Controllers;
 
 [ApiController]
-[Authorize]
 [Route("api/[controller]")]
+[Authorize]
 public class RagController(RagService ragService) : ControllerBase
 {
     [HttpPost("ingest")]
     public async Task<IActionResult> Ingest([FromBody] IngestRequest request)
     {
-        await ragService.IngestTextAsync(request.Source, request.Text);
+        var userId = User.GetUserId();
+        await ragService.IngestTextAsync(request.Source, request.Text, userId);
         return Ok(new { message = "Ingested successfully" });
     }
 
     [HttpGet("search")]
     public async Task<IActionResult> Search([FromQuery] string query, [FromQuery] int topK = 5)
     {
-        var results = await ragService.SearchAsync(query, topK);
+        var userId = User.GetUserId();
+        var results = await ragService.SearchAsync(query, userId, topK);
         return Ok(results);
     }
 
     [HttpDelete("{source}")]
     public async Task<IActionResult> DeleteSource(string source)
     {
-        await ragService.DeleteSourceAsync(source);
+        var userId = User.GetUserId();
+        await ragService.DeleteSourceAsync(source, userId);
         return NoContent();
     }
 }

@@ -1,52 +1,47 @@
-﻿using NaviProject.Core.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using NaviProject.Core.Interfaces;
+using NaviProject.Core.Models;
 using NaviProject.Core.Services;
-using NaviProject.Core.Interfaces;
 
-namespace NaviProject.Core.Services
-{
-    public class ConversationService(
+namespace NaviProject.Core.Services;
+
+public class ConversationService(
     ChatService chatService,
     RagService ragService,
     ILanguageModelService languageModelService)
+{
+    public async Task<string> ChatAsync(int chatId, string userMessage, int userId)
     {
-        public async Task<string> ChatAsync(int chatId, string userMessage)
-        {
-            // 1. Save User info
-            await chatService.SaveUserMessageAsync(chatId, userMessage);
+        // 1. Save user information
+        await chatService.SaveUserMessageAsync(chatId, userMessage);
 
-            // 2. Query relative knowledge from knowledge bank
-            var relevantChunks = await ragService.SearchAsync(userMessage, topK: 3);
+        // 2. User based query from knowledge bank (User ID)
+        var relevantChunks = await ragService.SearchAsync(userMessage, userId, topK: 3);
 
-            // 3. Acquire history context 
-            var history = await chatService.GetChatHistoryAsync(chatId);
+        // 3. Get Chat history
+        var history = await chatService.GetChatHistoryAsync(chatId);
 
-            // 4. Build prompt
-            var prompt = BuildPrompt(userMessage, relevantChunks, history);
+        // 4. build prompt
+        var prompt = BuildPrompt(userMessage, relevantChunks, history);
 
-            // 5. Call model
-            var response = await languageModelService.CompleteAsync(prompt, history);
+        // 5. Call language model API
+        var response = await languageModelService.CompleteAsync(prompt, history);
 
-            // 6. Save the response from model
-            await chatService.SaveAssistantMessageAsync(chatId, response);
+        // 6. Save response from model
+        await chatService.SaveAssistantMessageAsync(chatId, response);
 
-            return response;
-        }
+        return response;
+    }
 
-        private static string BuildPrompt(
-            string userMessage,
-            IEnumerable<RagChunk> chunks,
-            IEnumerable<ChatMessage> history)
-        {
-            var context = string.Join("\n\n", chunks.Select(c => c.Content));
+    private static string BuildPrompt(
+        string userMessage,
+        IEnumerable<RagChunk> chunks,
+        IEnumerable<ChatMessage> history)
+    {
+        var context = string.Join("\n\n", chunks.Select(c => c.Content));
 
-            return string.IsNullOrEmpty(context)
-                ? userMessage
-                : $"""
+        return string.IsNullOrEmpty(context)
+            ? userMessage
+            : $"""
                以下是相关的历史任务记录，请参考这些内容回答问题：
 
                {context}
@@ -54,6 +49,5 @@ namespace NaviProject.Core.Services
                ---
                问题：{userMessage}
                """;
-        }
     }
 }

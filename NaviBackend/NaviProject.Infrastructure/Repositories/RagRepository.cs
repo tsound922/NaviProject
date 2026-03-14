@@ -3,7 +3,6 @@ using NaviProject.Core.Interfaces;
 using NaviProject.Core.Models;
 using Npgsql;
 using Pgvector;
-using Pgvector.Dapper;
 
 namespace NaviProject.Infrastructure.Repositories;
 
@@ -17,12 +16,12 @@ public class RagRepository(string connectionString) : IRagRepository
         return dataSource.OpenConnection();
     }
 
-    public async Task InsertChunkAsync(RagChunk chunk)
+    public async Task InsertChunkAsync(RagChunk chunk, int userId)
     {
         using var conn = CreateConnection();
         const string sql = """
-            INSERT INTO simp_rag (source, chunk_id, start_index, end_index, content, embedding)
-            VALUES (@Source, @ChunkId, @StartIndex, @EndIndex, @Content, @Embedding)
+            INSERT INTO simp_rag (source, chunk_id, start_index, end_index, content, embedding, user_id)
+            VALUES (@Source, @ChunkId, @StartIndex, @EndIndex, @Content, @Embedding, @UserId)
             ON CONFLICT (source, chunk_id) DO UPDATE
             SET content = EXCLUDED.content,
                 embedding = EXCLUDED.embedding,
@@ -35,38 +34,41 @@ public class RagRepository(string connectionString) : IRagRepository
             chunk.StartIndex,
             chunk.EndIndex,
             chunk.Content,
-            Embedding = chunk.Embedding != null ? new Vector(chunk.Embedding) : null
+            Embedding = chunk.Embedding != null ? new Vector(chunk.Embedding) : null,
+            UserId = userId
         });
     }
 
-   public async Task<IEnumerable<RagChunk>> SearchAsync(float[] queryEmbedding, int topK = 5)
-{
-    using var conn = CreateConnection();
-    const string sql = """
-        SELECT 
-            id,
-            source,
-            chunk_id AS ChunkId,
-            start_index AS StartIndex,
-            end_index AS EndIndex,
-            content,
-            created_at AS CreatedAt,
-            updated_at AS UpdatedAt
-        FROM simp_rag
-        ORDER BY embedding <=> @Embedding
-        LIMIT @TopK;
-        """;
-    return await conn.QueryAsync<RagChunk>(sql, new
-    {
-        Embedding = new Vector(queryEmbedding),
-        TopK = topK
-    });
-}
-
-    public async Task DeleteBySourceAsync(string source)
+    public async Task<IEnumerable<RagChunk>> SearchAsync(float[] queryEmbedding, int userId, int topK = 5)
     {
         using var conn = CreateConnection();
-        const string sql = "DELETE FROM simp_rag WHERE source = @Source;";
-        await conn.ExecuteAsync(sql, new { Source = source });
+        const string sql = """
+            SELECT 
+                id,
+                source,
+                chunk_id AS ChunkId,
+                start_index AS StartIndex,
+                end_index AS EndIndex,
+                content,
+                created_at AS CreatedAt,
+                updated_at AS UpdatedAt
+            FROM simp_rag
+            WHERE user_id = @UserId
+            ORDER BY embedding <=> @Embedding
+            LIMIT @TopK;
+            """;
+        return await conn.QueryAsync<RagChunk>(sql, new
+        {
+            Embedding = new Vector(queryEmbedding),
+            UserId = userId,
+            TopK = topK
+        });
+    }
+
+    public async Task DeleteBySourceAsync(string source, int userId)
+    {
+        using var conn = CreateConnection();
+        const string sql = "DELETE FROM simp_rag WHERE source = @Source AND user_id = @UserId;";
+        await conn.ExecuteAsync(sql, new { Source = source, UserId = userId });
     }
 }

@@ -5,10 +5,10 @@ namespace NaviProject.Core.Services;
 
 public class RagService(IRagRepository ragRepo, IEmbeddingService embeddingService)
 {
-    private const int ChunkSize = 5000;
+    private const int ChunkSize = 500;
     private const int ChunkOverlap = 50;
 
-    public async Task IngestTextAsync(string source, string text)
+    public async Task IngestTextAsync(string source, string text, int userId)
     {
         var chunks = ChunkText(text);
 
@@ -25,19 +25,19 @@ public class RagService(IRagRepository ragRepo, IEmbeddingService embeddingServi
                 EndIndex = end,
                 Content = content,
                 Embedding = embedding
-            });
+            }, userId);
         }
     }
 
-    public async Task<IEnumerable<RagChunk>> SearchAsync(string query, int topK = 5)
+    public async Task<IEnumerable<RagChunk>> SearchAsync(string query, int userId, int topK = 5)
     {
         var embedding = await embeddingService.GetEmbeddingAsync(query);
-        return await ragRepo.SearchAsync(embedding, topK);
+        return await ragRepo.SearchAsync(embedding, userId, topK);
     }
 
-    public async Task DeleteSourceAsync(string source)
+    public async Task DeleteSourceAsync(string source, int userId)
     {
-        await ragRepo.DeleteBySourceAsync(source);
+        await ragRepo.DeleteBySourceAsync(source, userId);
     }
 
     private static List<(string Content, int Start, int End)> ChunkText(string text)

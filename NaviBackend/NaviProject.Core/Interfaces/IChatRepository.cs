@@ -9,10 +9,10 @@ namespace NaviProject.Core.Interfaces
 {
     public interface IChatRepository
     {
-        Task<int> CreateChatAsync(string? title);
-        Task<Chat?> GetChatByIdAsync(int chatId);
-        Task<IEnumerable<Chat>> GetAllChatsAsync();
+        Task<int> CreateChatAsync(string? title, int userId);
+        Task<Chat?> GetChatByIdAsync(int chatId, int userId);
+        Task<IEnumerable<Chat>> GetAllChatsAsync(int userId);
         Task UpdateChatTitleAsync(int chatId, string title);
-        Task DeleteChatAsync(int chatId);
+        Task DeleteChatAsync(int chatId, int userId);
     }
 }

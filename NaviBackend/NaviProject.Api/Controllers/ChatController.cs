@@ -1,26 +1,28 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using NaviProject.Core.Models;
+using NaviProject.Api.Extensions;
 using NaviProject.Core.Services;
 
 namespace NaviProject.Api.Controllers;
 
 [ApiController]
-[Authorize]
 [Route("api/[controller]")]
+[Authorize]
 public class ChatController(ChatService chatService) : ControllerBase
 {
     [HttpPost]
     public async Task<IActionResult> CreateChat([FromBody] string? title)
     {
-        var chatId = await chatService.StartNewChatAsync(title);
+        var userId = User.GetUserId();
+        var chatId = await chatService.StartNewChatAsync(title, userId);
         return Ok(new { chatId });
     }
 
     [HttpGet]
     public async Task<IActionResult> GetAllChats()
     {
-        var chats = await chatService.GetAllChatsAsync();
+        var userId = User.GetUserId();
+        var chats = await chatService.GetAllChatsAsync(userId);
         return Ok(chats);
     }
 
@@ -34,14 +36,15 @@ public class ChatController(ChatService chatService) : ControllerBase
     [HttpPost("{chatId}/messages")]
     public async Task<IActionResult> SendMessage(int chatId, [FromBody] SendMessageRequest request)
     {
-        await chatService.SaveMessageAsync(chatId, "user", request.Content);
+        await chatService.SaveUserMessageAsync(chatId, request.Content);
         return Ok();
     }
 
     [HttpDelete("{chatId}")]
     public async Task<IActionResult> DeleteChat(int chatId)
     {
-        await chatService.DeleteChatAsync(chatId);
+        var userId = User.GetUserId();
+        await chatService.DeleteChatAsync(chatId, userId);
         return NoContent();
     }
 }

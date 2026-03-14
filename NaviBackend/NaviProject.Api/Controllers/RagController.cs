@@ -4,6 +4,7 @@ using NaviProject.Core.Services;
 namespace NaviProject.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class RagController(RagService ragService) : ControllerBase
 {

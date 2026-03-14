@@ -5,6 +5,7 @@ using NaviProject.Core.Services;
 namespace NaviProject.Api.Controllers;
 
 [ApiController]
+[Authorize]
 [Route("api/[controller]")]
 public class ChatController(ChatService chatService) : ControllerBase
 {

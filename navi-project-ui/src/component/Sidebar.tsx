@@ -6,10 +6,11 @@ interface SidebarProps {
   selectedChatId: number | null;
   onSelectChat: (chatId: number) => void;
   onNewChat: () => void;
-  onIngest: () => void; 
+  onIngest: () => void;
+  onLogout: () => void; 
 }
 
-export default function Sidebar({ selectedChatId, onSelectChat, onNewChat, onIngest }: SidebarProps) {
+export default function Sidebar({ selectedChatId, onSelectChat, onNewChat, onIngest, onLogout}: SidebarProps) {
   const [chats, setChats] = useState<Chat[]>([]);
 
   useEffect(() => {
@@ -78,7 +79,7 @@ export default function Sidebar({ selectedChatId, onSelectChat, onNewChat, onIng
   + Ingest Document
 </button>
 
-      <div style={{ overflowY: 'auto', flex: 1 }}>
+  <div style={{ overflowY: 'auto', flex: 1 }}>
         {chats.map(chat => (
           <div
             key={chat.id}
@@ -111,7 +112,24 @@ export default function Sidebar({ selectedChatId, onSelectChat, onNewChat, onIng
             </button>
           </div>
         ))}
-      </div>
+  </div>
+
+<button
+  onClick={onLogout}
+  style={{
+    backgroundColor: 'transparent',
+    color: '#aaa',
+    border: '1px solid #444',
+    borderRadius: '8px',
+    padding: '10px',
+    cursor: 'pointer',
+    fontSize: '14px',
+    marginTop: 'auto',
+  }}
+>
+  Sign Out
+</button>
+
     </div>
   );
 }

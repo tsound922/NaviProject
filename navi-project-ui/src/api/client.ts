@@ -8,6 +8,15 @@ const client = axios.create({
   },
 });
 
+//JWT Token
+client.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 export const chatApi = {
   createChat: (title?: string) =>
     client.post<{ chatId: number }>("/chat", JSON.stringify(title ?? null)),
@@ -27,4 +36,18 @@ export const ragApi = {
     client.post("/rag/ingest", { source, text }),
   search: (query: string, topK: number = 5) =>
     client.get<RagChunk[]>("/rag/search", { params: { query, topK } }),
+};
+
+export const authApi = {
+  register: (username: string, email: string, password: string) =>
+    client.post<{ message: string; token: string }>("/auth/register", {
+      username,
+      email,
+      password,
+    }),
+  login: (username: string, password: string) =>
+    client.post<{ message: string; token: string }>("/auth/login", {
+      username,
+      password,
+    }),
 };

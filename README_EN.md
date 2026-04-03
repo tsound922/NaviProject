@@ -1,21 +1,24 @@
 # NaviProject
 
-A local LLM-powered personal knowledge base system that helps you review past tasks and accumulate work experience.
+A local LLM-powered enterprise knowledge base system that unifies information from Jira, Confluence, and Azure DevOps, helping teams retrieve historical tasks and accumulate work experience.
 
 ## Features
 
 - 📝 **Document Ingestion**: Vectorize and store task notes and work records into the knowledge base
-- 🔍 **Semantic Search**: Retrieve relevant historical records based on vector similarity
-- 💬 **Conversational Q&A**: Leverage RAG to let the local model answer questions based on your knowledge base
+- 🔍 **Hybrid Search**: Combines semantic search and full-text search, with exact Jira ticket key lookup
+- 💬 **Conversational Q&A**: Leverage RAG to answer questions based on knowledge base content, with relevant links included in responses
 - 🗂️ **Session Management**: Save complete conversation history with multi-session support
 - 👤 **User Authentication**: JWT-based login with full multi-user data isolation
+- 🔒 **Public/Private Knowledge Base**: Personal private knowledge base alongside shared team knowledge base
+- 🎫 **Jira Integration**: Auto-sync Jira tickets including comments, status, assignee, and attachment info
+- 🌐 **Multilingual Support**: Automatically responds in the user's language (English/Chinese)
 - 🔒 **Fully Local**: Models and data run entirely on your machine — no privacy concerns
 
 ## Tech Stack
 
 ### Backend
 - **Framework**: ASP.NET Core Web API (.NET 8)
-- **Database**: PostgreSQL + pgvector (vector storage)
+- **Database**: PostgreSQL + pgvector (vector storage) + full-text search
 - **ORM**: Dapper
 - **Auth**: JWT (BCrypt password hashing)
 - **Local Models**: Ollama
@@ -30,14 +33,14 @@ A local LLM-powered personal knowledge base system that helps you review past ta
 
 ```
 NaviProject/
-├── NaviProject/
+├── NaviBackend/
 │   ├── NaviProject.Api/              # ASP.NET Core Web API
-│   │   ├── Controllers/              # AuthController, ChatController, RagController, ConversationController
+│   │   ├── Controllers/              # AuthController, ChatController, RagController, ConversationController, JiraController
 │   │   ├── Extensions/               # ClaimsPrincipalExtensions
-│   │   └── Services/                 # OllamaEmbeddingService, OllamaLanguageModelService, AuthService
+│   │   └── Services/                 # OllamaEmbeddingService, OllamaLanguageModelService, AuthService, JiraService
 │   ├── NaviProject.Core/             # Business logic layer
-│   │   ├── Interfaces/               # IAuthService, IChatRepository, IChatMessageRepository, IRagRepository, IUserRepository, IEmbeddingService, ILanguageModelService
-│   │   ├── Models/                   # AppUser, Chat, ChatMessage, RagChunk
+│   │   ├── Interfaces/               # IAuthService, IChatRepository, IChatMessageRepository, IRagRepository, IUserRepository, IEmbeddingService, ILanguageModelService, IJiraService
+│   │   ├── Models/                   # AppUser, Chat, ChatMessage, RagChunk, JiraTicket
 │   │   └── Services/                 # ChatService, RagService, ConversationService, UserService
 │   └── NaviProject.Infrastructure/   # Data access layer
 │       ├── Repositories/             # UserRepository, ChatRepository, ChatMessageRepository, RagRepository
@@ -74,7 +77,10 @@ CREATE TABLE simp_rag (
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     content TEXT NOT NULL,
-    embedding VECTOR(768)
+    embedding VECTOR(768),
+    is_public BOOLEAN DEFAULT FALSE,
+    metadata JSONB,
+    content_tsv tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED
 );
 
 -- Chat session table
@@ -128,18 +134,20 @@ ollama pull nomic-embed-text
 
 ### 4. Configure the Backend
 
-Edit `NaviProject/NaviProject.Api/appsettings.json`:
+In Visual Studio, right-click `NaviProject.Api` → **Manage User Secrets** and fill in:
 
 ```json
 {
   "ConnectionStrings": {
     "Postgres": "Host=localhost;Port=5432;Database=your_db;Username=your_user;Password=your_password"
   },
-  "Ollama": {
-    "BaseUrl": "http://localhost:11434"
-  },
   "Jwt": {
     "Secret": "your-super-secret-key-at-least-32-characters-long"
+  },
+  "Jira": {
+    "BaseUrl": "https://yourcompany.atlassian.net",
+    "Email": "your-email@company.com",
+    "ApiToken": "your-api-token"
   }
 }
 ```
@@ -147,7 +155,7 @@ Edit `NaviProject/NaviProject.Api/appsettings.json`:
 ### 5. Start the Backend
 
 ```bash
-cd NaviProject/NaviProject.Api
+cd NaviBackend/NaviProject.Api
 dotnet run
 ```
 
@@ -174,9 +182,12 @@ The frontend runs at `http://localhost:5173` by default.
 | GET | `/api/chat/{chatId}/messages` | ✅ | Get messages for a session |
 | DELETE | `/api/chat/{chatId}` | ✅ | Delete a chat session |
 | POST | `/api/conversation/{chatId}` | ✅ | Send a message (RAG + chat) |
-| POST | `/api/rag/ingest` | ✅ | Ingest a document into the knowledge base |
-| GET | `/api/rag/search` | ✅ | Semantic search the knowledge base |
+| POST | `/api/rag/ingest` | ✅ | Ingest document into private knowledge base |
+| POST | `/api/rag/ingest/public` | ✅ | Ingest document into public knowledge base |
+| GET | `/api/rag/search` | ✅ | Hybrid search the knowledge base |
 | DELETE | `/api/rag/{source}` | ✅ | Delete a knowledge base source |
+| GET | `/api/jira/tickets` | ✅ | Fetch Jira tickets |
+| POST | `/api/jira/sync` | ✅ | Sync Jira tickets to knowledge base |
 
 ## Roadmap
 
@@ -186,10 +197,16 @@ The frontend runs at `http://localhost:5173` by default.
 - [x] Document ingestion UI
 - [x] User authentication (JWT)
 - [x] Multi-user data isolation
-- [ ] Jira integration
+- [x] Public/private knowledge base
+- [x] Jira integration (auto-sync, metadata, ticket URL)
+- [x] Hybrid search (semantic + full-text)
+- [x] Multilingual support
 - [ ] Confluence integration
-- [ ] Azure DevOps integration
+- [ ] Azure DevOps integration (Git commits, PR history)
+- [ ] Conversation-triggered knowledge ingestion
+- [ ] Multi-agent architecture (Semantic Kernel)
 - [ ] Azure AD login
+- [ ] UI upgrade (Shadcn/ui)
 - [ ] Server deployment
 - [ ] MCP Server integration
 

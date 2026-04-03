@@ -33,7 +33,7 @@
 
 ```
 NaviProject/
-├── Solution1/
+├── NaviBackend/
 │   ├── NaviProject.Api/              # ASP.NET Core Web API
 │   │   ├── Controllers/              # AuthController, ChatController, RagController, ConversationController, JiraController
 │   │   ├── Extensions/               # ClaimsPrincipalExtensions
@@ -155,7 +155,7 @@ ollama pull nomic-embed-text
 ### 5. 启动后端
 
 ```bash
-cd Solution1/NaviProject.Api
+cd NaviBackend/NaviProject.Api
 dotnet run
 ```
 

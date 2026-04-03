@@ -1,21 +1,24 @@
 # NaviProject
 
-一个基于本地 LLM 的个人知识库系统，帮助你回顾历史任务、沉淀工作经验。
+一个基于本地 LLM 的企业知识库系统，帮助团队统一检索 Jira、Confluence、Azure DevOps 等平台的信息，回顾历史任务、沉淀工作经验。
 
 ## 功能特性
 
 - 📝 **文档录入**：将任务笔记、工作记录向量化存储到知识库
-- 🔍 **语义搜索**：基于向量相似度检索相关历史记录
-- 💬 **对话问答**：结合 RAG 技术，让本地模型根据知识库内容回答问题
+- 🔍 **混合搜索**：结合语义搜索和全文搜索，支持 Jira ticket 编号精确查询
+- 💬 **对话问答**：结合 RAG 技术，让本地模型根据知识库内容回答问题，并附上相关链接
 - 🗂️ **会话管理**：保存完整对话历史，支持多会话切换
 - 👤 **用户认证**：JWT 登录认证，多用户数据完全隔离
+- 🔒 **公私知识库**：支持个人私有知识库和团队公共知识库
+- 🎫 **Jira 接入**：自动同步 Jira tickets，包含评论、状态、assignee、附件信息
+- 🌐 **多语言支持**：自动跟随用户语言（中文/英文）回答
 - 🔒 **完全本地**：模型和数据均在本地运行，无需担心数据隐私
 
 ## 技术栈
 
 ### 后端
 - **框架**：ASP.NET Core Web API (.NET 8)
-- **数据库**：PostgreSQL + pgvector（向量存储）
+- **数据库**：PostgreSQL + pgvector（向量存储）+ 全文搜索
 - **ORM**：Dapper
 - **认证**：JWT（BCrypt 密码加密）
 - **本地模型**：Ollama
@@ -30,14 +33,14 @@
 
 ```
 NaviProject/
-├── NaviProject/
+├── Solution1/
 │   ├── NaviProject.Api/              # ASP.NET Core Web API
-│   │   ├── Controllers/              # AuthController, ChatController, RagController, ConversationController
+│   │   ├── Controllers/              # AuthController, ChatController, RagController, ConversationController, JiraController
 │   │   ├── Extensions/               # ClaimsPrincipalExtensions
-│   │   └── Services/                 # OllamaEmbeddingService, OllamaLanguageModelService, AuthService
+│   │   └── Services/                 # OllamaEmbeddingService, OllamaLanguageModelService, AuthService, JiraService
 │   ├── NaviProject.Core/             # 业务逻辑层
-│   │   ├── Interfaces/               # IAuthService, IChatRepository, IChatMessageRepository, IRagRepository, IUserRepository, IEmbeddingService, ILanguageModelService
-│   │   ├── Models/                   # AppUser, Chat, ChatMessage, RagChunk
+│   │   ├── Interfaces/               # IAuthService, IChatRepository, IChatMessageRepository, IRagRepository, IUserRepository, IEmbeddingService, ILanguageModelService, IJiraService
+│   │   ├── Models/                   # AppUser, Chat, ChatMessage, RagChunk, JiraTicket
 │   │   └── Services/                 # ChatService, RagService, ConversationService, UserService
 │   └── NaviProject.Infrastructure/   # 数据访问层
 │       ├── Repositories/             # UserRepository, ChatRepository, ChatMessageRepository, RagRepository
@@ -74,7 +77,10 @@ CREATE TABLE simp_rag (
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     content TEXT NOT NULL,
-    embedding VECTOR(768)
+    embedding VECTOR(768),
+    is_public BOOLEAN DEFAULT FALSE,
+    metadata JSONB,
+    content_tsv tsvector GENERATED ALWAYS AS (to_tsvector('english', content)) STORED
 );
 
 -- 会话表
@@ -128,18 +134,20 @@ ollama pull nomic-embed-text
 
 ### 4. 配置后端
 
-编辑 `NaviProject/NaviProject.Api/appsettings.json`：
+在 Visual Studio 中右键 `NaviProject.Api` → **Manage User Secrets**，填入：
 
 ```json
 {
   "ConnectionStrings": {
     "Postgres": "Host=localhost;Port=5432;Database=你的数据库名;Username=你的用户名;Password=你的密码"
   },
-  "Ollama": {
-    "BaseUrl": "http://localhost:11434"
-  },
   "Jwt": {
     "Secret": "your-super-secret-key-at-least-32-characters-long"
+  },
+  "Jira": {
+    "BaseUrl": "https://yourcompany.atlassian.net",
+    "Email": "your-email@company.com",
+    "ApiToken": "your-api-token"
   }
 }
 ```
@@ -147,7 +155,7 @@ ollama pull nomic-embed-text
 ### 5. 启动后端
 
 ```bash
-cd NaviProject/NaviProject.Api
+cd Solution1/NaviProject.Api
 dotnet run
 ```
 
@@ -174,9 +182,12 @@ npm run dev
 | GET | `/api/chat/{chatId}/messages` | ✅ | 获取会话消息 |
 | DELETE | `/api/chat/{chatId}` | ✅ | 删除会话 |
 | POST | `/api/conversation/{chatId}` | ✅ | 发送消息（RAG + 对话） |
-| POST | `/api/rag/ingest` | ✅ | 录入文档到知识库 |
-| GET | `/api/rag/search` | ✅ | 语义搜索知识库 |
+| POST | `/api/rag/ingest` | ✅ | 录入文档到私有知识库 |
+| POST | `/api/rag/ingest/public` | ✅ | 录入文档到公共知识库 |
+| GET | `/api/rag/search` | ✅ | 混合搜索知识库 |
 | DELETE | `/api/rag/{source}` | ✅ | 删除知识库来源 |
+| GET | `/api/jira/tickets` | ✅ | 获取 Jira tickets |
+| POST | `/api/jira/sync` | ✅ | 同步 Jira tickets 到知识库 |
 
 ## 路线图
 
@@ -186,10 +197,16 @@ npm run dev
 - [x] 文档录入 UI
 - [x] 用户登录认证（JWT）
 - [x] 多用户数据隔离
-- [ ] Jira 接入
+- [x] 公共/私有知识库
+- [x] Jira 接入（自动同步、metadata、ticket URL）
+- [x] 混合搜索（语义 + 全文）
+- [x] 多语言支持
 - [ ] Confluence 接入
-- [ ] Azure DevOps 接入
+- [ ] Azure DevOps 接入（Git commit、PR 记录）
+- [ ] 对话触发知识库录入
+- [ ] 多 Agent 架构（Semantic Kernel）
 - [ ] Azure AD 登录
+- [ ] UI 升级（Shadcn/ui）
 - [ ] 部署到服务器
 - [ ] MCP Server 改造
 

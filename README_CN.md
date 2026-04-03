@@ -8,6 +8,7 @@
 - 🔍 **语义搜索**：基于向量相似度检索相关历史记录
 - 💬 **对话问答**：结合 RAG 技术，让本地模型根据知识库内容回答问题
 - 🗂️ **会话管理**：保存完整对话历史，支持多会话切换
+- 👤 **用户认证**：JWT 登录认证，多用户数据完全隔离
 - 🔒 **完全本地**：模型和数据均在本地运行，无需担心数据隐私
 
 ## 技术栈
@@ -16,9 +17,10 @@
 - **框架**：ASP.NET Core Web API (.NET 8)
 - **数据库**：PostgreSQL + pgvector（向量存储）
 - **ORM**：Dapper
+- **认证**：JWT（BCrypt 密码加密）
 - **本地模型**：Ollama
   - 对话模型：qwen3:8b
-  - Embedding 模型：bge-m3（1024 维）
+  - Embedding 模型：nomic-embed-text（768 维）
 
 ### 前端
 - **框架**：React + TypeScript（Vite）
@@ -29,30 +31,42 @@
 ```
 NaviProject/
 ├── NaviProject/
-│   ├── NaviProject.Api/          # ASP.NET Core Web API
-│   │   ├── Controllers/          # ChatController, RagController, ConversationController
-│   │   └── Services/             # OllamaEmbeddingService, OllamaLanguageModelService
-│   ├── NaviProject.Core/         # 业务逻辑层
-│   │   ├── Interfaces/           # 接口定义
-│   │   ├── Models/               # 数据模型
-│   │   └── Services/             # ChatService, RagService, ConversationService
-│   └── NaviProject.Infrastructure/  # 数据访问层
-│       ├── Repositories/         # ChatRepository, RagRepository
-│       └── TypeHandlers/         # Dapper 类型处理
-└── navi-project-ui/              # React 前端
+│   ├── NaviProject.Api/              # ASP.NET Core Web API
+│   │   ├── Controllers/              # AuthController, ChatController, RagController, ConversationController
+│   │   ├── Extensions/               # ClaimsPrincipalExtensions
+│   │   └── Services/                 # OllamaEmbeddingService, OllamaLanguageModelService, AuthService
+│   ├── NaviProject.Core/             # 业务逻辑层
+│   │   ├── Interfaces/               # IAuthService, IChatRepository, IChatMessageRepository, IRagRepository, IUserRepository, IEmbeddingService, ILanguageModelService
+│   │   ├── Models/                   # AppUser, Chat, ChatMessage, RagChunk
+│   │   └── Services/                 # ChatService, RagService, ConversationService, UserService
+│   └── NaviProject.Infrastructure/   # 数据访问层
+│       ├── Repositories/             # UserRepository, ChatRepository, ChatMessageRepository, RagRepository
+│       └── TypeHandlers/             # VectorTypeHandler
+└── navi-project-ui/                  # React 前端
     └── src/
-        ├── api/                  # API 客户端
-        ├── components/           # Sidebar, ChatWindow
-        ├── pages/
-        └── types/                # TypeScript 类型定义
+        ├── api/                      # API 客户端
+        ├── components/               # Sidebar, ChatWindow, IngestPanel
+        ├── pages/                    # LoginPage
+        └── types/                    # TypeScript 类型定义
 ```
 
 ## 数据库结构
 
 ```sql
+-- 用户表
+CREATE TABLE app_user (
+    id SERIAL PRIMARY KEY,
+    username TEXT NOT NULL UNIQUE,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
+);
+
 -- 知识库表
 CREATE TABLE simp_rag (
     id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES app_user(id) ON DELETE CASCADE,
     source TEXT NOT NULL,
     chunk_id TEXT NOT NULL,
     start_index INT NOT NULL,
@@ -60,12 +74,13 @@ CREATE TABLE simp_rag (
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW(),
     content TEXT NOT NULL,
-    embedding VECTOR(1024)
+    embedding VECTOR(768)
 );
 
 -- 会话表
 CREATE TABLE chat (
     id SERIAL PRIMARY KEY,
+    user_id INT REFERENCES app_user(id) ON DELETE CASCADE,
     title TEXT,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -102,13 +117,13 @@ docker run -d \
 
 ### 2. 初始化数据库
 
-连接到 PostgreSQL 并执行 `schema.sql` 中的建表语句。
+连接到 PostgreSQL 并执行建表语句。
 
 ### 3. 拉取 Ollama 模型
 
 ```bash
 ollama pull qwen3:8b
-ollama pull bge-m3
+ollama pull nomic-embed-text
 ```
 
 ### 4. 配置后端
@@ -122,6 +137,9 @@ ollama pull bge-m3
   },
   "Ollama": {
     "BaseUrl": "http://localhost:11434"
+  },
+  "Jwt": {
+    "Secret": "your-super-secret-key-at-least-32-characters-long"
   }
 }
 ```
@@ -133,7 +151,7 @@ cd NaviProject/NaviProject.Api
 dotnet run
 ```
 
-后端默认运行在 `http://localhost:5289`，Swagger 文档地址：`http://localhost:5289/swagger`
+后端默认运行在 `http://localhost:5289`，Swagger 文档：`http://localhost:5289/swagger`
 
 ### 6. 启动前端
 
@@ -147,25 +165,33 @@ npm run dev
 
 ## API 接口
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/chat` | 创建新会话 |
-| GET | `/api/chat` | 获取所有会话 |
-| GET | `/api/chat/{chatId}/messages` | 获取会话消息 |
-| DELETE | `/api/chat/{chatId}` | 删除会话 |
-| POST | `/api/conversation/{chatId}` | 发送消息（RAG + 对话） |
-| POST | `/api/rag/ingest` | 录入文档到知识库 |
-| GET | `/api/rag/search` | 语义搜索知识库 |
-| DELETE | `/api/rag/{source}` | 删除知识库来源 |
+| 方法 | 路径 | 认证 | 说明 |
+|------|------|------|------|
+| POST | `/api/auth/register` | ❌ | 注册新用户 |
+| POST | `/api/auth/login` | ❌ | 用户登录 |
+| POST | `/api/chat` | ✅ | 创建新会话 |
+| GET | `/api/chat` | ✅ | 获取所有会话 |
+| GET | `/api/chat/{chatId}/messages` | ✅ | 获取会话消息 |
+| DELETE | `/api/chat/{chatId}` | ✅ | 删除会话 |
+| POST | `/api/conversation/{chatId}` | ✅ | 发送消息（RAG + 对话） |
+| POST | `/api/rag/ingest` | ✅ | 录入文档到知识库 |
+| GET | `/api/rag/search` | ✅ | 语义搜索知识库 |
+| DELETE | `/api/rag/{source}` | ✅ | 删除知识库来源 |
 
 ## 路线图
 
-- [ ] 文档录入 UI
-- [ ] Jira / Confluence 接入
-- [ ] 登录和多用户支持
-- [ ] 代码库导入
-- [ ] MCP Server 改造
+- [x] 基础架构搭建
+- [x] RAG 文档录入和语义搜索
+- [x] 对话 + RAG 结合
+- [x] 文档录入 UI
+- [x] 用户登录认证（JWT）
+- [x] 多用户数据隔离
+- [ ] Jira 接入
+- [ ] Confluence 接入
+- [ ] Azure DevOps 接入
+- [ ] Azure AD 登录
 - [ ] 部署到服务器
+- [ ] MCP Server 改造
 
 ## License
 

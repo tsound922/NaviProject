@@ -33,21 +33,45 @@ public class ConversationService(
     }
 
     private static string BuildPrompt(
-        string userMessage,
-        IEnumerable<RagChunk> chunks,
-        IEnumerable<ChatMessage> history)
+    string userMessage,
+    IEnumerable<RagChunk> chunks,
+    IEnumerable<ChatMessage> history)
     {
-        var context = string.Join("\n\n", chunks.Select(c => c.Content));
+        if (!chunks.Any())
+            return userMessage;
 
-        return string.IsNullOrEmpty(context)
-            ? userMessage
-            : $"""
-               以下是相关的历史任务记录，请参考这些内容回答问题：
+        var contextBuilder = new System.Text.StringBuilder();
 
-               {context}
+        foreach (var chunk in chunks)
+        {
+            contextBuilder.AppendLine(chunk.Content);
 
-               ---
-               问题：{userMessage}
-               """;
+            // 如果有 metadata，加上 URL
+            if (!string.IsNullOrEmpty(chunk.Metadata))
+            {
+                try
+                {
+                    var metadata = System.Text.Json.JsonDocument.Parse(chunk.Metadata).RootElement;
+                    if (metadata.TryGetProperty("url", out var url) && url.ValueKind != System.Text.Json.JsonValueKind.Null)
+                    {
+                        contextBuilder.AppendLine($"Link: {url.GetString()}");
+                    }
+                }
+                catch { }
+            }
+
+            contextBuilder.AppendLine();
+        }
+
+        return $"""
+            The following are relevant records. Please use them to answer the question.
+            If there are links available, include them in your response.
+            Always respond in the same language as the user's question.
+
+            {contextBuilder}
+
+            ---
+            Question: {userMessage}
+            """;
     }
 }

@@ -1,5 +1,6 @@
 ﻿using NaviProject.Core.Interfaces;
 using NaviProject.Core.Models;
+using System.Text.RegularExpressions;
 
 namespace NaviProject.Core.Services;
 
@@ -28,15 +29,34 @@ public class RagService(IRagRepository ragRepo, IEmbeddingService embeddingServi
             }, userId, isPublic);
         }
     }
+
     public async Task<IEnumerable<RagChunk>> SearchAsync(string query, int userId, int topK = 5)
     {
+        // pick up ticket number from query
+        var ticketKey = ExtractTicketKey(query);
+        if (ticketKey != null)
+        {
+            return await ragRepo.SearchByMetadataAsync("ticket_key", ticketKey, userId);
+        }
+
+        // use hybrid searching 
         var embedding = await embeddingService.GetEmbeddingAsync(query);
-        return await ragRepo.SearchAsync(embedding, userId, topK);
+        return await ragRepo.HybridSearchAsync(embedding, query, userId, topK);
+    }
+
+    public async Task<IEnumerable<RagChunk>> SearchByMetadataAsync(string key, string value, int userId)
+    {
+        return await ragRepo.SearchByMetadataAsync(key, value, userId);
     }
 
     public async Task DeleteSourceAsync(string source, int userId)
     {
         await ragRepo.DeleteBySourceAsync(source, userId);
+    }
+
+    public async Task<float[]> GetEmbeddingForChunkAsync(string text)
+    {
+        return await embeddingService.GetEmbeddingAsync(text);
     }
 
     private static List<(string Content, int Start, int End)> ChunkText(string text)
@@ -53,4 +73,10 @@ public class RagService(IRagRepository ragRepo, IEmbeddingService embeddingServi
 
         return chunks;
     }
+    private static string? ExtractTicketKey(string query)
+    {
+        var match = Regex.Match(query, @"\b([A-Z]+-\d+)\b", RegexOptions.IgnoreCase);
+        return match.Success ? match.Value.ToUpper() : null;
+    }
+
 }

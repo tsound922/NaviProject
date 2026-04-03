@@ -53,7 +53,7 @@ builder.Services.AddAuthorization();
 // Repositories
 builder.Services.AddScoped<IChatRepository>(sp => new ChatRepository(connectionString));
 builder.Services.AddScoped<IChatMessageRepository>(sp => new ChatMessageRepository(connectionString));
-builder.Services.AddScoped<IRagRepository>(sp => new RagRepository(connectionString));
+builder.Services.AddScoped<IRagRepository>(sp => new RagRepository(dataSource));
 builder.Services.AddScoped<IUserRepository>(sp => new UserRepository(connectionString));
 
 // Services
@@ -64,6 +64,7 @@ builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<RagService>();
 builder.Services.AddScoped<ConversationService>();
 builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<IJiraService, JiraService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

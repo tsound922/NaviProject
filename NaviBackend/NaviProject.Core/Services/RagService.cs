@@ -9,7 +9,7 @@ public class RagService(IRagRepository ragRepo, IEmbeddingService embeddingServi
     private const int ChunkSize = 500;
     private const int ChunkOverlap = 50;
 
-    public async Task IngestTextAsync(string source, string text, int userId, bool isPublic = false)
+    public async Task IngestTextAsync(string source, string text, int userId, bool isPublic = false, string? metadata = null)
     {
         var chunks = ChunkText(text);
 
@@ -25,23 +25,27 @@ public class RagService(IRagRepository ragRepo, IEmbeddingService embeddingServi
                 StartIndex = start,
                 EndIndex = end,
                 Content = content,
-                Embedding = embedding
+                Embedding = embedding,
+                Metadata = metadata
             }, userId, isPublic);
         }
     }
 
     public async Task<IEnumerable<RagChunk>> SearchAsync(string query, int userId, int topK = 5)
     {
-        // pick up ticket number from query
         var ticketKey = ExtractTicketKey(query);
         if (ticketKey != null)
         {
             return await ragRepo.SearchByMetadataAsync("ticket_key", ticketKey, userId);
         }
 
-        // use hybrid searching 
         var embedding = await embeddingService.GetEmbeddingAsync(query);
-        return await ragRepo.HybridSearchAsync(embedding, query, userId, topK);
+        var results = await ragRepo.HybridSearchAsync(embedding, query, userId, topK * 10);
+
+        return results
+            .GroupBy(r => r.Source)
+            .Select(g => g.First())
+            .Take(topK);
     }
 
     public async Task<IEnumerable<RagChunk>> SearchByMetadataAsync(string key, string value, int userId)
@@ -57,6 +61,14 @@ public class RagService(IRagRepository ragRepo, IEmbeddingService embeddingServi
     public async Task<float[]> GetEmbeddingForChunkAsync(string text)
     {
         return await embeddingService.GetEmbeddingAsync(text);
+    }
+    public async Task<DateTime?> GetLastSyncedAtAsync(string source)
+    {
+        return await ragRepo.GetLastSyncedAtAsync(source);
+    }
+    public async Task<HashSet<string>> GetSyncedSourcesAsync(string prefix)
+    {
+        return await ragRepo.GetSyncedSourcesAsync(prefix);
     }
 
     private static List<(string Content, int Start, int End)> ChunkText(string text)

@@ -65,6 +65,7 @@ builder.Services.AddScoped<RagService>();
 builder.Services.AddScoped<ConversationService>();
 builder.Services.AddScoped<UserService>();
 builder.Services.AddScoped<IJiraService, JiraService>();
+builder.Services.AddScoped<IConfluenceService, ConfluenceService>();
 
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();

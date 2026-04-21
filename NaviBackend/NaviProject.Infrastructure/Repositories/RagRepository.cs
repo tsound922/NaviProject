@@ -88,10 +88,11 @@ public class RagRepository(NpgsqlDataSource dataSource) : IRagRepository
             metadata::text AS Metadata,
             created_at AS CreatedAt,
             updated_at AS UpdatedAt,
-            (1 - (embedding <=> @Embedding)) * 0.7 + 
-            COALESCE(ts_rank(content_tsv, plainto_tsquery('english', @Query)), 0) * 0.3 AS score
+            (1 - (embedding <=> @Embedding)) * 0.4 + 
+            ts_rank(content_tsv, plainto_tsquery('english', @Query)) * 0.6 AS score
         FROM simp_rag
         WHERE (user_id = @UserId OR is_public = TRUE)
+            AND content_tsv @@ plainto_tsquery('english', @Query)
         ORDER BY score DESC
         LIMIT @TopK;
         """;
@@ -103,7 +104,6 @@ public class RagRepository(NpgsqlDataSource dataSource) : IRagRepository
             TopK = topK
         });
     }
-
     public async Task<IEnumerable<RagChunk>> SearchByMetadataAsync(string key, string value, int userId)
     {
         using var conn = CreateConnection();
@@ -129,5 +129,22 @@ public class RagRepository(NpgsqlDataSource dataSource) : IRagRepository
             UserId = userId,
             Filter = $"{{\"{key}\": \"{value}\"}}"
         });
+    }
+    public async Task<DateTime?> GetLastSyncedAtAsync(string source)
+    {
+        using var conn = CreateConnection();
+        const string sql = """
+        SELECT MAX(updated_at) FROM simp_rag WHERE source = @Source;
+        """;
+        return await conn.ExecuteScalarAsync<DateTime?>(sql, new { Source = source });
+    }
+    public async Task<HashSet<string>> GetSyncedSourcesAsync(string prefix)
+    {
+        using var conn = CreateConnection();
+        const string sql = """
+        SELECT DISTINCT source FROM simp_rag WHERE source LIKE @Prefix;
+        """;
+        var results = await conn.QueryAsync<string>(sql, new { Prefix = $"{prefix}%" });
+        return results.ToHashSet();
     }
 }
